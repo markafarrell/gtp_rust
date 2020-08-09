@@ -1,0 +1,10 @@
+[package]
+name = "gtp"
+version = "0.1.0"
+authors = ["markafarrell"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+byteorder = { version = "1.0", default-features = false }
