@@ -2,26 +2,9 @@
 
 use super::{MessageTraits, MessageType};
 
+use super::information_elements;
+
 pub struct Message {
-    /*                                  
-                                        Bits
-            |---------------------------------------------------------------| 
-    Octets  |   8   |   7   |   6   |   5   |   4   |   3   |   2   |   1   |
-    (index) |---------------------------------------------------------------|
-    1 (0)   | Version               | PT    | (*)   | E     | S     | PN    | 
-    2 (1)   | Message Type (2)                                              |
-    3 (2)   | Length (1st Octet)                                            |
-    4 (3)   | Length (2nd Octet)                                            |
-    5 (4)   | Tunnel Endpoint Identifier (1st Octet)                        |
-    6 (5)   | Tunnel Endpoint Identifier (2nd Octet)                        |
-    7 (6)   | Tunnel Endpoint Identifier (3rd Octet)                        |
-    8 (7)   | Tunnel Endpoint Identifier (4th Octet)                        |
-    9 (8)   | Sequence Number (1st Octet)                                   |
-    10 (9)  | Sequence Number (2nd Octet)                                   |
-    11 (10) | N-PDU Number                                                  |
-    12 (11) | Next Extension Header Type                                    |
-            |---------------------------------------------------------------|
-    */
 }
 
 impl Message {
@@ -31,10 +14,25 @@ impl Message {
 }
 
 impl MessageTraits for Message {
+    fn push_ie(&mut self, _ie: Box<dyn information_elements::InformationElementTraits>)
+    {
+        ()
+    }
+
+    fn pop_ie(&mut self) -> Option<Box<dyn information_elements::InformationElementTraits>>
+    {
+        None
+    }
+
+    fn attach_packet(&mut self, _packet: &[u8]) -> Result<usize,String>
+    {
+        Err("Packets cannot be attached to this message type".to_string())
+    }
+
     fn message_type(&self) -> u8 {
         MessageType::EchoRequest as u8
     }
-    fn length(&self) -> u8 {
+    fn length(&self) -> u16 {
         0
     }
     fn generate(&self, _buffer: &mut[u8]) -> usize {
