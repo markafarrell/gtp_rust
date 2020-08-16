@@ -6,6 +6,8 @@ use super::messages::MessageType;
 
 pub mod extension_headers;
 
+use extension_headers::ExtensionHeaderTraits;
+
 /*                                  
                                         Bits
             |---------------------------------------------------------------| 
@@ -78,7 +80,7 @@ impl Header {
         self.message_type
     }
 
-    fn length(&self) -> u16 {
+    pub fn length(&self) -> u16 {
         /* Length of Payload in octets. i.e. the rest of the packet following the 
         mandatory part of the GTP header (that is the first 8 octets). The Sequence Number, 
         the N-PDU Number or any Extension headers shall be considered to be part of the 
@@ -101,7 +103,7 @@ impl Header {
 
         for e in self.extension_headers.iter() {
             // length of extension headers is in multiples of 4 octets therfore we need to multiply by 4 here
-            length = length + (e.length() * 4) as u16;
+            length = length + e.length() as u16;
         }
 
         length
@@ -168,7 +170,7 @@ impl Header {
             let len = self.extension_headers.len();
 
             if len > 0 {
-                //Set new end of list to ExtensionHeaderType::NoMore as u8 for next_extension_header_type
+                //Set new pos of list to ExtensionHeaderType::NoMore as u8 for next_extension_header_type
                 self.extension_headers[len-1].set_next_extension_header_type(extension_headers::ExtensionHeaderType::NoMore);
             }
             else {
@@ -198,40 +200,156 @@ impl Header {
         NetworkEndian::write_u32(&mut buffer[TEID],self.teid);
 
         // Optional fields start at index 8
-        let mut end: usize = 8;
+        let mut pos: usize = 8;
 
         if self.s == 1 {
-            NetworkEndian::write_u16(&mut buffer[end..],self.sequence_number);
-            end = end + 2;
+            NetworkEndian::write_u16(&mut buffer[pos..],self.sequence_number);
+            pos = pos + 2;
         }
 
         if self.pn == 1 {
-            buffer[end] = self.n_pdu_number;
-            end = end + 1;
+            buffer[pos] = self.n_pdu_number;
+            pos = pos + 1;
         }
 
         if self.e == 1 {
             if self.extension_headers.len() > 0 {
                 // We write the type of the first extension header in the next_extension_header_type field here
-                buffer[end] = self.extension_headers[0].extension_header_type() as u8;
-                end = end + 1;
+                buffer[pos] = self.extension_headers[0].extension_header_type() as u8;
+                pos = pos + 1;
             }
             else {
                 // This should never happen as we shouldnt have e set without anything in the extenstion headers vector
                 // however, when/if this happens we should write ExtensionHeaderType::NoMore as u8 in the next_extension_header_type field
-                buffer[end] = extension_headers::ExtensionHeaderType::NoMore as u8;
-                end = end + 1;
+                buffer[pos] = extension_headers::ExtensionHeaderType::NoMore as u8;
+                pos = pos + 1;
             }
             for e in self.extension_headers.iter() {
-                let extenstion_header_size = e.generate(&mut buffer[end..]);
-                end = end + extenstion_header_size;
+                let extenstion_header_size = e.generate(&mut buffer[pos..]);
+                pos = pos + extenstion_header_size;
             }
         }
 
-        end
+        pos
     }
     
-    pub fn parse(&mut self, _buffer: &[u8]) {
+    fn parse_flags(flags: u8) -> (u8, u8, u8, u8, u8) {
+        let version = (flags >> 5) & 0b111;
+        let pt = (flags >> 4) & 0b1;
+        let e = (flags >> 2) & 0b1;
+        let s = (flags >> 1) & 0b1;
+        let pn = flags & 0b1;
+
+        (version, pt, e, s, pn)
+    }
+
+    pub fn parse(buffer: &[u8]) -> Option<(Self, u16, usize)> {
+        let (version, pt, e, s, pn) = Self::parse_flags(buffer[0]);
+
+        if version != 1 {
+            // The packet isn't a GTPv1 packet
+            return None;
+        }
+
+        if pt != 1 {
+            // We dont support GTP'
+            return None;
+        }
+
+        let message_type:MessageType = buffer[1].into();
+
+        let mut h = Self::new(message_type);
+
+        let length = NetworkEndian::read_u16(&buffer[LENGTH]);
+
+        let teid = NetworkEndian::read_u32(&buffer[TEID]);
+        h.set_teid(teid);
+
+        let mut pos: usize = 8;
+
+        if s == 1 {
+            let sequence_number = NetworkEndian::read_u16(&buffer[pos..]);
+            pos = pos + 2;
+            h.set_sequence_number(sequence_number);
+            h.enable_sequence_number();
+        }
+
+        if pn == 1 {
+            let n_pdu_number = buffer[pos];
+            pos = pos + 1;
+
+            h.set_n_pdu_number(n_pdu_number);
+            h.enable_n_pdu_number();
+        }
+
+        if e == 1 {
+            let mut next_extension_header_type = buffer[pos];
+            pos = pos + 1;
+
+            loop {
+                match next_extension_header_type.into() {
+                    extension_headers::ExtensionHeaderType::NoMore => break,
+                    extension_headers::ExtensionHeaderType::MbmsSi => {
+                        let eh = extension_headers::mbms_support_indication::ExtensionHeader::parse(&buffer[pos..]);
+                        if let Some((eh, eh_pos)) = eh {
+                            next_extension_header_type = eh.next_extension_header_type() as u8;
+                            h.push_extension_header(Box::new(eh));
+                            pos = pos + eh_pos;
+                        }
+                    },
+                    extension_headers::ExtensionHeaderType::LongPdcpPduNumber => {
+                        let eh = extension_headers::mbms_support_indication::ExtensionHeader::parse(&buffer[pos..]);
+                        if let Some((eh, eh_pos)) = eh {
+                            next_extension_header_type = eh.next_extension_header_type() as u8;
+                            h.push_extension_header(Box::new(eh));
+                            pos = pos + eh_pos;
+                        }
+                    },
+                    extension_headers::ExtensionHeaderType::MsInfoChange => {
+                        let eh = extension_headers::ms_info_change_reporting_support_indication::ExtensionHeader::parse(&buffer[pos..]);
+                        if let Some((eh, eh_pos)) = eh {
+                            next_extension_header_type = eh.next_extension_header_type() as u8;
+                            h.push_extension_header(Box::new(eh));
+                            pos = pos + eh_pos;
+                        }
+                    },
+                    extension_headers::ExtensionHeaderType::PdcpPduNum => {
+                        let eh = extension_headers::pdcp_pdu_number::ExtensionHeader::parse(&buffer[pos..]);
+                        if let Some((eh, eh_pos)) = eh {
+                            next_extension_header_type = eh.next_extension_header_type() as u8;
+                            h.push_extension_header(Box::new(eh));
+                            pos = pos + eh_pos;
+                        }
+                    },
+                    extension_headers::ExtensionHeaderType::SuspendReq => {
+                        let eh = extension_headers::suspend_request::ExtensionHeader::parse(&buffer[pos..]);
+                        if let Some((eh, eh_pos)) = eh {
+                            next_extension_header_type = eh.next_extension_header_type() as u8;
+                            h.push_extension_header(Box::new(eh));
+                            pos = pos + eh_pos;
+                        }
+                    },
+                    extension_headers::ExtensionHeaderType::SuspendRes => {
+                        let eh = extension_headers::suspend_response::ExtensionHeader::parse(&buffer[pos..]);
+                        if let Some((eh, eh_pos)) = eh {
+                            next_extension_header_type = eh.next_extension_header_type() as u8;
+                            h.push_extension_header(Box::new(eh));
+                            pos = pos + eh_pos;
+                        }
+                    },
+                    extension_headers::ExtensionHeaderType::UDPPort => {
+                        let eh = extension_headers::udp_port::ExtensionHeader::parse(&buffer[pos..]);
+                        if let Some((eh, eh_pos)) = eh {
+                            next_extension_header_type = eh.next_extension_header_type() as u8;
+                            h.push_extension_header(Box::new(eh));
+                            pos = pos + eh_pos;
+                        }
+                    },
+                }
+            }
+        }
+
+        Some((h, length, pos))
     }
 }
 
@@ -264,9 +382,9 @@ mod tests {
 
         let h = Header::new(MessageType::EchoRequest);
 
-        let end = h.generate(&mut buffer);
+        let pos = h.generate(&mut buffer);
 
-        assert_eq!(buffer[..end], [
+        assert_eq!(buffer[..pos], [
             /* Flags */ 0b0011_0000, 
             /* Message Type */ MessageType::EchoRequest as u8,
             /* Length */ 0x00, 0x00,
@@ -284,9 +402,9 @@ mod tests {
 
         assert_eq!(h.teid(), 0x12345678);
 
-        let end = h.generate(&mut buffer);
+        let pos = h.generate(&mut buffer);
 
-        assert_eq!(buffer[..end], [
+        assert_eq!(buffer[..pos], [
             /* Flags */ 0b0011_0000, 
             /* Message Type */ MessageType::EchoRequest as u8,
             /* Length */ 0x00, 0x00,
@@ -304,10 +422,10 @@ mod tests {
 
         assert_eq!(h.sequence_number(), 0x1234);
 
-        let end = h.generate(&mut buffer);
+        let pos = h.generate(&mut buffer);
 
         // We haven't enabled SN so it shouldn't be output
-        assert_eq!(buffer[..end], [
+        assert_eq!(buffer[..pos], [
             /* Flags */ 0b0011_0000, 
             /* Message Type */ MessageType::EchoRequest as u8,
             /* Length */ 0x00, 0x00,
@@ -318,9 +436,9 @@ mod tests {
 
         assert_eq!(h.length(), 2);
 
-        let end = h.generate(&mut buffer);
+        let pos = h.generate(&mut buffer);
 
-        assert_eq!(buffer[..end], [
+        assert_eq!(buffer[..pos], [
             /* Flags */ 0b0011_0010, 
             /* Message Type */ MessageType::EchoRequest as u8,
             /* Length */ 0x00, 0x02,
@@ -330,10 +448,10 @@ mod tests {
 
         h.disable_sequence_number();
 
-        let end = h.generate(&mut buffer);
+        let pos = h.generate(&mut buffer);
 
         // We haven't enabled SN so it shouldn't be output
-        assert_eq!(buffer[..end], [
+        assert_eq!(buffer[..pos], [
             /* Flags */ 0b0011_0000, 
             /* Message Type */ MessageType::EchoRequest as u8,
             /* Length */ 0x00, 0x00,
@@ -351,10 +469,10 @@ mod tests {
 
         assert_eq!(h.n_pdu_number(), 0x12);
 
-        let end = h.generate(&mut buffer);
+        let pos = h.generate(&mut buffer);
 
         // We haven't enabled N_PDU so it shouldn't be output
-        assert_eq!(buffer[..end], [
+        assert_eq!(buffer[..pos], [
             /* Flags */ 0b0011_0000, 
             /* Message Type */ MessageType::EchoRequest as u8,
             /* Length */ 0x00, 0x00,
@@ -365,9 +483,9 @@ mod tests {
 
         assert_eq!(h.length(), 1);
 
-        let end = h.generate(&mut buffer);
+        let pos = h.generate(&mut buffer);
 
-        assert_eq!(buffer[..end], [
+        assert_eq!(buffer[..pos], [
             /* Flags */ 0b0011_0001, 
             /* Message Type */ MessageType::EchoRequest as u8,
             /* Length */ 0x00, 0x01,
@@ -377,10 +495,10 @@ mod tests {
 
         h.disable_n_pdu_number();
 
-        let end = h.generate(&mut buffer);
+        let pos = h.generate(&mut buffer);
 
         // We haven't enabled SN so it shouldn't be output
-        assert_eq!(buffer[..end], [
+        assert_eq!(buffer[..pos], [
             /* Flags */ 0b0011_0000, 
             /* Message Type */ MessageType::EchoRequest as u8,
             /* Length */ 0x00, 0x00,
@@ -398,9 +516,9 @@ mod tests {
 
         h.push_extension_header(mbms_si);
 
-        let end = h.generate(&mut buffer);
+        let pos = h.generate(&mut buffer);
 
-        assert_eq!(buffer[..end], [
+        assert_eq!(buffer[..pos], [
             /* Flags */ 0b0011_0100, 
             /* Message Type */ MessageType::EchoRequest as u8,
             /* Length */ 0x00, 0x05,
@@ -413,9 +531,9 @@ mod tests {
 
         h.push_extension_header(s_req);
 
-        let end = h.generate(&mut buffer);
+        let pos = h.generate(&mut buffer);
 
-        assert_eq!(buffer[..end], [
+        assert_eq!(buffer[..pos], [
             /* Flags */ 0b0011_0100, 
             /* Message Type */ MessageType::EchoRequest as u8,
             /* Length */ 0x00, 0x09,
@@ -431,9 +549,9 @@ mod tests {
 
         h.push_extension_header(pdcp_pdu_number);
 
-        let end = h.generate(&mut buffer);
+        let pos = h.generate(&mut buffer);
 
-        assert_eq!(buffer[..end], [
+        assert_eq!(buffer[..pos], [
             /* Flags */ 0b0011_0100, 
             /* Message Type */ MessageType::EchoRequest as u8,
             /* Length */ 0x00, 0x0d,
@@ -446,9 +564,9 @@ mod tests {
 
         h.pop_extension_header();
 
-        let end = h.generate(&mut buffer);
+        let pos = h.generate(&mut buffer);
 
-        assert_eq!(buffer[..end], [
+        assert_eq!(buffer[..pos], [
             /* Flags */ 0b0011_0100, 
             /* Message Type */ MessageType::EchoRequest as u8,
             /* Length */ 0x00, 0x09,
@@ -467,9 +585,9 @@ mod tests {
 
         h.set_payload_length(0x1234);
 
-        let end = h.generate(&mut buffer);
+        let pos = h.generate(&mut buffer);
 
-        assert_eq!(buffer[..end], [
+        assert_eq!(buffer[..pos], [
             /* Flags */ 0b0011_0000, 
             /* Message Type */ MessageType::EchoRequest as u8,
             /* Length */ 0x12, 0x34,
@@ -481,9 +599,9 @@ mod tests {
 
         assert_eq!(h.length(), 0x1234+2);
 
-        let end = h.generate(&mut buffer);
+        let pos = h.generate(&mut buffer);
 
-        assert_eq!(buffer[..end], [
+        assert_eq!(buffer[..pos], [
             /* Flags */ 0b0011_0010, 
             /* Message Type */ MessageType::EchoRequest as u8,
             /* Length */ 0x12, 0x36,
@@ -495,10 +613,10 @@ mod tests {
         h.enable_n_pdu_number();
 
         assert_eq!(h.length(), 0x1234+2+1);
-        let end = h.generate(&mut buffer);
+        let pos = h.generate(&mut buffer);
 
         // We haven't enabled SN so it shouldn't be output
-        assert_eq!(buffer[..end], [
+        assert_eq!(buffer[..pos], [
             /* Flags */ 0b0011_0011, 
             /* Message Type */ MessageType::EchoRequest as u8,
             /* Length */ 0x12, 0x37,
@@ -522,9 +640,9 @@ mod tests {
 
         assert_eq!(h.length(), 3);
 
-        let end = h.generate(&mut buffer);
+        let pos = h.generate(&mut buffer);
 
-        assert_eq!(buffer[..end], [
+        assert_eq!(buffer[..pos], [
             /* Flags */ 0b0011_0011, 
             /* Message Type */ MessageType::EchoRequest as u8,
             /* Length */ 0x00, 0x03,
@@ -536,6 +654,38 @@ mod tests {
 
     #[test]
     fn test_message_parse() {
-        assert_eq!(1, 1)
+
+        let header_bytes =  [
+            /* Flags */ 0b0011_0100, 
+            /* Message Type */ MessageType::EchoRequest as u8,
+            /* Length */ 0x00, 0x0d,
+            /* TEID */ 0x12, 0x34, 0x56, 0x78,
+            /* Next Extension Header Type */ ExtensionHeaderType::MbmsSi as u8,
+            /* MBMS SI Ext Header */ 0x01, 0xFF, 0xFF, ExtensionHeaderType::SuspendReq as u8,
+            /* Suspend Request Ext Header */ 0x01, 0xFF, 0xFF, ExtensionHeaderType::PdcpPduNum as u8,
+            /* PDCP PDU Number Ext Header */ 0x01, 0x12, 0x34, ExtensionHeaderType::NoMore as u8
+            ];
+
+        let h = Header::parse(&header_bytes);
+
+        if let Some((h, length, pos)) = h {
+            assert_eq!(h.message_type as u8, MessageType::EchoRequest as u8);
+            assert_eq!(h.length(), 0x0d);
+            assert_eq!(h.teid(), 0x12345678);
+
+            assert_eq!(h.extension_headers.len(), 3);
+
+            assert_eq!(h.extension_headers[0].extension_header_type() as u8, ExtensionHeaderType::MbmsSi as u8);
+
+            assert_eq!(h.extension_headers[1].extension_header_type() as u8, ExtensionHeaderType::SuspendReq as u8);
+
+            assert_eq!(h.extension_headers[2].extension_header_type() as u8, ExtensionHeaderType::PdcpPduNum as u8);
+
+            assert_eq!(pos, 21);
+        }
+        else {
+            // Failed to parse. This shouldnt happen with a valid header
+            assert!(false)
+        }
     }
 }

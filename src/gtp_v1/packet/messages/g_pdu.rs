@@ -7,7 +7,7 @@ use super::{MessageTraits, MessageType};
 use super::information_elements;
 
 pub struct Message {
-    t_pdu: Vec<u8>
+    pub t_pdu: Vec<u8>
 }
 
 const MESSAGE_TYPE: u8 = MessageType::GPDU as u8;
@@ -17,6 +17,20 @@ impl Message {
         Message {
             t_pdu: Vec::new()
         }
+    }
+
+    pub fn parse(buffer: &[u8]) -> Option<(Self, usize)> {
+
+        let mut m =  Message::new();
+        let mut pos = 0;
+        
+        for i in 0..buffer.len()
+        {
+            m.t_pdu.push(buffer[i]);
+            pos = pos + 1;
+        }
+
+        Some((m, pos))
     }
 }
 
@@ -58,8 +72,6 @@ impl MessageTraits for Message {
             buffer[i] = self.t_pdu[i];
         }
         self.t_pdu.len()
-    }
-    fn parse(&mut self, _buffer: &[u8]) {
     }
 }
 
@@ -129,9 +141,9 @@ mod tests {
         let mut m = Message::new();
         
         if let Ok(_) = m.attach_packet(&icmpv4) {
-            let end = m.generate(&mut buffer);
+            let pos = m.generate(&mut buffer);
 
-            for i in 0..end {
+            for i in 0..pos {
                 if buffer[i] != icmpv4[i] {
                     println!("{} (actual) != {} (expected) at byte {}", buffer[i], icmpv4[i], i);
                     assert!(false);
@@ -180,6 +192,34 @@ mod tests {
 
     #[test]
     fn test_message_parse() {
-        assert_eq!(1, 1)
+        let m_bytes = [
+            0x45, 0x00, 0x00, 0x54, 0xaf, 0x2a, 0x40, 0x00,
+            0x3f, 0x01, 0xba, 0xcc, 0xc0, 0xa8, 0x00, 0xfa,
+            0x08, 0x08, 0x08, 0x08, 
+            0x08, 0x00, 0xa9, 0xfe, 0x03, 0xe9, 0x00, 0x01,
+            0x5a, 0x5f, 0x33, 0x5f, 0x00, 0x00, 0x00, 0x00,
+            0xfd, 0x85, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+            0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
+            0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27,
+            0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f,
+            0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37
+        ];
+
+        let m = Message::parse(&m_bytes);
+
+        if let Some((m, pos)) = m {
+            assert_eq!(m_bytes.len(), pos);
+            for i in 0..m_bytes.len() {
+                if m.t_pdu[i] != m_bytes[i] {
+                    println!("{} (actual) != {} (expected) at byte {}", m.t_pdu[i], m_bytes[i], i);
+                    assert!(false);
+                } 
+            }
+        }
+        else {
+            // Failed to parse message
+            assert!(false);
+        }
     }
 }

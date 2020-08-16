@@ -40,11 +40,31 @@ pub enum ExtensionHeaderType
     SuspendRes = 0b1100_0010
 }
 
+impl From<u8> for ExtensionHeaderType {
+    fn from(v: u8) -> Self {
+        match v {
+            0b0000_0000 => ExtensionHeaderType::NoMore,
+            0b0000_0001 => ExtensionHeaderType::MbmsSi,
+            0b0000_0010 => ExtensionHeaderType::MsInfoChange,
+            // 0b0010_0000 => ExtensionHeaderType::ServiceClassIndicator,
+            0b0100_0000 => ExtensionHeaderType::UDPPort,
+            // 0b1000_0001 => ExtensionHeaderType::RANContainer,
+            // 0b1000_0010 => ExtensionHeaderType::LongPdcpPduNumber,
+            // 0b1000_0011 => ExtensionHeaderType::XwRANContainer,
+            // 0b1000_0100 => ExtensionHeaderType::NRRANContainer,
+            // 0b1000_0101 => ExtensionHeaderType::PDUSessionContainer,
+            0b1100_0000 => ExtensionHeaderType::PdcpPduNum,
+            0b1100_0001 => ExtensionHeaderType::SuspendReq,
+            0b1100_0010 => ExtensionHeaderType::SuspendRes,
+            _ => panic!(format!("Unsupported Extension Header ({})", v))
+        }
+    }
+}
+
 pub trait ExtensionHeaderTraits {
     fn extension_header_type(&self) -> ExtensionHeaderType;
     fn set_next_extension_header_type(&mut self, next_extension_header_type: ExtensionHeaderType);
     fn next_extension_header_type(&self) -> ExtensionHeaderType;
     fn length(&self) -> u8;
     fn generate(&self, buffer: &mut[u8]) -> usize;
-    fn parse(&mut self, buffer: &[u8]);
 }

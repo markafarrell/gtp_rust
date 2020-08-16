@@ -251,36 +251,36 @@ impl InformationElementTraits for InformationElement {
     }
 
     fn generate(&self, buffer: &mut[u8]) -> usize {
-        let mut end = 0;
+        let mut pos = 0;
         
         // Write the type
-        buffer[end] = self.information_element_type() as u8;
-        end = end + 1;
+        buffer[pos] = self.information_element_type() as u8;
+        pos = pos + 1;
 
         // Write the length
         // We subtract 3 octets as the type and length fields aren't included.
         NetworkEndian::write_u16(&mut buffer[LENGTH],self.length()-3);
-        end = end + 2;
+        pos = pos + 2;
 
         // Write ARP
-        buffer[end] = self.arp;
-        end = end + 1;
+        buffer[pos] = self.arp;
+        pos = pos + 1;
 
         // Write Delay Class and Reliability Class
-        buffer[end] = (self.delay_class as u8) << 3 | (self.reliability_class as u8);
-        end = end + 1;
+        buffer[pos] = (self.delay_class as u8) << 3 | (self.reliability_class as u8);
+        pos = pos + 1;
 
         // Write Peak Throughput and Precedence Class
-        buffer[end] = (self.peak_throughput as u8) << 4 | (self.precedence_class as u8);
-        end = end + 1;
+        buffer[pos] = (self.peak_throughput as u8) << 4 | (self.precedence_class as u8);
+        pos = pos + 1;
 
         // Write Mean Throughput
-        buffer[end] = self.mean_throughput as u8;
-        end = end + 1;
+        buffer[pos] = self.mean_throughput as u8;
+        pos = pos + 1;
 
         // TODO: Generate the rest of the optional fields
 
-        end
+        pos
     }
     
     fn parse(&mut self, _buffer: &[u8]) {
@@ -313,9 +313,9 @@ mod tests {
             mean_throughput
         );
 
-        let end = ie.generate(&mut buffer);
+        let pos = ie.generate(&mut buffer);
 
-        assert_eq!(buffer[..end], 
+        assert_eq!(buffer[..pos], 
             [
                 InformationElementType::QoSProfile as u8,
                 0, 4,

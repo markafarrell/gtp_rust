@@ -46,18 +46,18 @@ impl InformationElementTraits for InformationElement {
     }
 
     fn generate(&self, buffer: &mut[u8]) -> usize {
-        let mut end = 0;
+        let mut pos = 0;
         
         // Write the type
-        buffer[end] = self.information_element_type() as u8;
+        buffer[pos] = self.information_element_type() as u8;
 
-        end = end + 1;
+        pos = pos + 1;
 
         NetworkEndian::write_u32(&mut buffer[TEID],self.teid);
 
-        end = end + 4;
+        pos = pos + 4;
 
-        end
+        pos
     }
     
     fn parse(&mut self, _buffer: &[u8]) {
@@ -83,9 +83,9 @@ mod tests {
 
         assert_eq!(ie.teid(), 0x87654321);
 
-        let end = ie.generate(&mut buffer);
+        let pos = ie.generate(&mut buffer);
 
-        assert_eq!(buffer[..end], [InformationElementType::TeidDataI as u8, 0x87, 0x65, 0x43, 0x21]);
+        assert_eq!(buffer[..pos], [InformationElementType::TeidDataI as u8, 0x87, 0x65, 0x43, 0x21]);
     }
 
     #[test]
@@ -94,9 +94,9 @@ mod tests {
 
         let teid: u32 = 0x12345678;
         let ie = InformationElement::new(teid);
-        let end = ie.generate(&mut buffer);
+        let pos = ie.generate(&mut buffer);
 
-        assert_eq!(buffer[..end], [InformationElementType::TeidDataI as u8, 0x12, 0x34, 0x56, 0x78]);
+        assert_eq!(buffer[..pos], [InformationElementType::TeidDataI as u8, 0x12, 0x34, 0x56, 0x78]);
     }
     
     #[test]

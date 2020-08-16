@@ -2,8 +2,6 @@ use byteorder::{ByteOrder, NetworkEndian};
 
 use super::{ExtensionHeaderTraits, ExtensionHeaderType};
 
-use std::convert::TryInto;
-
 pub struct ExtensionHeader {
     /*
                                         Bits
@@ -11,9 +9,13 @@ pub struct ExtensionHeader {
         Octets  |   8   |   7   |   6   |   5   |   4   |   3   |   2   |   1   |
                 |---------------------------------------------------------------|
         1       | Extension Header Length (1)                                   |
-        2       | PDCP PDU number                                               |
-        3       | PDCP PDU number                                               |
-        4       | Next Extension Header Type                                    |
+        2       | PDCP PDU number Octet 1                                       |
+        3       | PDCP PDU number Octet 2                                       |
+        4       | PDCP PDU number Octet 3                                       |
+        5       | Padding (0x00)                                                |
+        6       | Padding (0x00)                                                |
+        7       | Padding (0x00)                                                |
+        8       | Next Extension Header Type                                    |
                 |---------------------------------------------------------------|
 
     */
@@ -27,6 +29,35 @@ impl ExtensionHeader {
             pdcp_pdu_number: 0x0000,
             next_extension_header_type: ExtensionHeaderType::NoMore
         }
+    }
+
+    pub fn parse(buffer: &[u8]) -> Option<(Self, usize)> {
+        let mut pos = 0;
+
+        // Parse the length
+        let length = buffer[0];
+        pos = pos + 1;
+
+        // Read pdcp_pdu_number
+        let pdcp_pdu_number = NetworkEndian::read_uint(&buffer[1..4], 3) as u32;
+        pos = pos + 3;
+
+        // Padding
+        pos = pos + 3;
+
+        // Read the next extension header type in last octet
+        let next_extension_header_type: ExtensionHeaderType = buffer[pos].into();
+        pos = pos + 1;
+
+        Some(
+            (
+                ExtensionHeader {
+                    pdcp_pdu_number: pdcp_pdu_number,
+                    next_extension_header_type: next_extension_header_type
+                },
+                pos
+            )
+        )
     }
 
     pub fn set_pdcp_pdu_number(&mut self, value: u32) -> Result<u32,String> {
@@ -59,27 +90,20 @@ impl ExtensionHeaderTraits for ExtensionHeader {
     }
 
     fn length(&self) -> u8 {
-        2
+        8
     }
 
     fn generate(&self, buffer: &mut[u8]) -> usize {
         // Write the length
-        buffer[0] = self.length();
+        buffer[0] = self.length()/4;
 
-        // Write high 2 bits of pdcp_pdu_number
-        buffer[1] = ((self.pdcp_pdu_number >> 16 & 0xFF)).try_into().unwrap();
-        
-        // Write low 16 bits of pdcp_pdu_number
-        NetworkEndian::write_u16(&mut buffer[2..4], (self.pdcp_pdu_number & 0xFFFF).try_into().unwrap());
+        // Write the pdcp_pdu_number
+        NetworkEndian::write_uint(&mut buffer[1..4], self.pdcp_pdu_number as u64, 3);
 
         // Write next extension header type in last octet
-        buffer[self.length() as usize * 4 - 1] = self.next_extension_header_type as u8;
+        buffer[self.length() as usize - 1] = self.next_extension_header_type as u8;
 
-        self.length() as usize * 4
-    }
-    
-    fn parse(&mut self, _buffer: &[u8]) {
-        ()
+        self.length() as usize
     }
 }
 
@@ -95,9 +119,9 @@ mod tests {
 
         let eh = ExtensionHeader::new();
 
-        let end = eh.generate(&mut buffer);
+        let pos = eh.generate(&mut buffer);
 
-        assert_eq!(buffer[..end], [
+        assert_eq!(buffer[..pos], [
             0x02, // Length
             0x00, 0x00, 0x00, // PDCP PDU Number
             0x00, 0x00, 0x00, // Spare
@@ -117,9 +141,9 @@ mod tests {
 
         assert_eq!(eh.next_extension_header_type() as u8, ExtensionHeaderType::MsInfoChange as u8);
 
-        let end = eh.generate(&mut buffer);
+        let pos = eh.generate(&mut buffer);
 
-        assert_eq!(buffer[..end], [
+        assert_eq!(buffer[..pos], [
             0x02, // Length
             0x00, 0x00, 0x00, // PDCP PDU Number
             0x00, 0x00, 0x00, // Spare
@@ -137,9 +161,9 @@ mod tests {
         {
             assert_eq!(eh.pdcp_pdu_number(), 0x3FFFF);
             
-            let end = eh.generate(&mut buffer);
+            let pos = eh.generate(&mut buffer);
 
-            assert_eq!(buffer[..end], [
+            assert_eq!(buffer[..pos], [
                 0x02, // Length
                 0x03, 0xFF, 0xFF, // PDCP PDU Number
                 0x00, 0x00, 0x00, // Spare
@@ -167,9 +191,9 @@ mod tests {
         {
             assert_eq!(eh.pdcp_pdu_number(), 0x1234);
             
-            let end = eh.generate(&mut buffer);
+            let pos = eh.generate(&mut buffer);
             
-            assert_eq!(buffer[..end], [
+            assert_eq!(buffer[..pos], [
                 0x02, // Length
                 0x00, 0x12, 0x34, // PDCP PDU Number
                 0x00, 0x00, 0x00, // Spare
@@ -186,7 +210,7 @@ mod tests {
     #[test]
     fn test_length() {
         let eh = ExtensionHeader::new();
-        assert_eq!(eh.length(), 2)
+        assert_eq!(eh.length(), 8)
     }
 
     #[test]
@@ -197,6 +221,19 @@ mod tests {
 
     #[test]
     fn test_message_parse() {
-        assert_eq!(1, 1)
+        let eh_bytes = [
+            0x02, // Length
+            0x01, 0x12, 0x34, // PDCP PDU Number
+            0x00, 0x00, 0x00, // Spare
+            ExtensionHeaderType::MsInfoChange as u8
+        ];
+
+        let eh = ExtensionHeader::parse(&eh_bytes);
+
+        if let Some((eh, pos)) = eh {
+            assert_eq!(eh.next_extension_header_type() as u8, ExtensionHeaderType::MsInfoChange as u8);
+            assert_eq!(eh.pdcp_pdu_number(), 0x11234);
+            assert_eq!(pos, 8);
+        }
     }
 }

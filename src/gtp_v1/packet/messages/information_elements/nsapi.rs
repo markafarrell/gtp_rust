@@ -37,18 +37,18 @@ impl InformationElementTraits for InformationElement {
     }
 
     fn generate(&self, buffer: &mut[u8]) -> usize {
-        let mut end = 0;
+        let mut pos = 0;
         
         // Write the type
-        buffer[end] = self.information_element_type() as u8;
+        buffer[pos] = self.information_element_type() as u8;
 
-        end = end + 1;
+        pos = pos + 1;
 
-        buffer[end] = self.nsapi;
+        buffer[pos] = self.nsapi;
 
-        end = end + 1;
+        pos = pos + 1;
 
-        end
+        pos
     }
     
     fn parse(&mut self, _buffer: &[u8]) {
@@ -100,8 +100,8 @@ mod tests {
 
         match ie {
             Ok(ie) => {
-                let end = ie.generate(&mut buffer);
-                assert_eq!(buffer[..end], [InformationElementType::Nsapi as u8, 0xF]);
+                let pos = ie.generate(&mut buffer);
+                assert_eq!(buffer[..pos], [InformationElementType::Nsapi as u8, 0xF]);
             }
             Err(e) => {
                 println!("{}", e);

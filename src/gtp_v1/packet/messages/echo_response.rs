@@ -13,6 +13,9 @@ impl Message {
     pub fn new() -> Message {
         Message {}
     }
+    pub fn parse(buffer: &[u8]) -> Option<(Self, usize)> {
+        Some((Message::new(),0))
+    }
 }
 
 impl MessageTraits for Message {
@@ -40,8 +43,6 @@ impl MessageTraits for Message {
     fn generate(&self, _buffer: &mut[u8]) -> usize {
         0
     }
-    fn parse(&mut self, _buffer: &[u8]) {
-    }
 }
 
 #[cfg(test)]
@@ -57,9 +58,9 @@ mod tests {
 
         let m = Message::new();
 
-        let end = m.generate(&mut buffer);
+        let pos = m.generate(&mut buffer);
 
-        assert_eq!(buffer[..end], []);
+        assert_eq!(buffer[..pos], []);
     }
     
     #[test]

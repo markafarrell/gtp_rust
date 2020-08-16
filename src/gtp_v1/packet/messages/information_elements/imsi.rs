@@ -86,21 +86,21 @@ impl InformationElementTraits for InformationElement {
     }
 
     fn generate(&self, buffer: &mut[u8]) -> usize {
-        let mut end = 0;
+        let mut pos = 0;
         
         // Write the type
-        buffer[end] = self.information_element_type() as u8;
+        buffer[pos] = self.information_element_type() as u8;
 
-        end = end + 1;
+        pos = pos + 1;
 
         let tbcd_imsi = self.generate_tbcd_imsi();
 
         for i in 0..tbcd_imsi.len() {
-            buffer[end] = tbcd_imsi[i];
-            end = end + 1;
+            buffer[pos] = tbcd_imsi[i];
+            pos = pos + 1;
         }
 
-        end
+        pos
     }
     
     fn parse(&mut self, _buffer: &[u8]) {
@@ -179,8 +179,8 @@ mod tests {
 
         match imsi_ie {
             Ok(i) => {
-                let end = i.generate(&mut buffer);
-                assert_eq!(buffer[..end], [InformationElementType::Imsi as u8, 0x5F, 0x50, 0x10, 0x43, 0x58, 0x90, 0x40, 0x40]);
+                let pos = i.generate(&mut buffer);
+                assert_eq!(buffer[..pos], [InformationElementType::Imsi as u8, 0x5F, 0x50, 0x10, 0x43, 0x58, 0x90, 0x40, 0x40]);
             }
             Err(e) => {
                 println!("{}", e);

@@ -62,6 +62,9 @@ impl Message {
             information_elements: Vec::new()
         }
     }
+    pub fn parse(buffer: &[u8]) -> Option<(Self, usize)> {
+        None
+    }
 }
 
 impl MessageTraits for Message {
@@ -95,17 +98,15 @@ impl MessageTraits for Message {
     }
     fn generate(&self, buffer: &mut[u8]) -> usize {
         // NOTE: The list should be sorted by IE Type. We assume here they have been added in the correct order
-        let mut end = 0;
+        let mut pos = 0;
 
         for ie in self.information_elements.iter() {
-            let ie_size = ie.generate(&mut buffer[end..]);
+            let ie_size = ie.generate(&mut buffer[pos..]);
 
-            end = end + ie_size;
+            pos = pos + ie_size;
         }
 
-        end
-    }
-    fn parse(&mut self, _buffer: &[u8]) {
+        pos
     }
 }
 
@@ -176,7 +177,7 @@ mod tests {
             )
         );
 
-        let end = m.generate(&mut buffer);
+        let pos = m.generate(&mut buffer);
 
         let expected = [
             InformationElementType::TeidDataI as u8, 0x12, 0x34, 0x56, 0x78,
@@ -186,7 +187,7 @@ mod tests {
             InformationElementType::QoSProfile as u8, 0, 4, 8, 0b0010_0101, 0b0001_0010, 0x1F,
         ];
 
-        for i in 0..end {
+        for i in 0..pos {
             if buffer[i] != expected[i] {
                 println!("{} (actual) != {} (expected) at byte {}", buffer[i], expected[i], i);
                 assert!(false);

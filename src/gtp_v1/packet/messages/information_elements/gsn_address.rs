@@ -48,35 +48,35 @@ impl InformationElementTraits for InformationElement {
     }
 
     fn generate(&self, buffer: &mut[u8]) -> usize {
-        let mut end = 0;
+        let mut pos = 0;
         
         // Write the type
-        buffer[end] = self.information_element_type() as u8;
+        buffer[pos] = self.information_element_type() as u8;
 
-        end = end + 1;
+        pos = pos + 1;
 
         // Write the length
         // We subtract 3 octets as the type and length fields aren't included.
         NetworkEndian::write_u16(&mut buffer[LENGTH],self.length()-3);
-        end = end + 2;
+        pos = pos + 2;
 
         match self.gsn_address
         {
             IpAddr::V4(a) => {
                 for o in a.octets().iter() {
-                    buffer[end] = *o;
-                    end = end + 1;
+                    buffer[pos] = *o;
+                    pos = pos + 1;
                 }
             },
             IpAddr::V6(a) => {
                 for o in a.octets().iter() {
-                    buffer[end] = *o;
-                    end = end + 1;
+                    buffer[pos] = *o;
+                    pos = pos + 1;
                 }
             }
         };
 
-        end
+        pos
     }
     
     fn parse(&mut self, _buffer: &[u8]) {
@@ -98,9 +98,9 @@ mod tests {
 
         let ie = InformationElement::new(address);
 
-        let end = ie.generate(&mut buffer);
+        let pos = ie.generate(&mut buffer);
 
-        assert_eq!(buffer[..end], [InformationElementType::GsnAddress as u8,
+        assert_eq!(buffer[..pos], [InformationElementType::GsnAddress as u8,
             0, 4, 
             192, 168, 0, 1
         ]);
@@ -114,9 +114,9 @@ mod tests {
 
         let ie = InformationElement::new(address);
 
-        let end = ie.generate(&mut buffer);
+        let pos = ie.generate(&mut buffer);
 
-        assert_eq!(buffer[..end], [InformationElementType::GsnAddress as u8, 
+        assert_eq!(buffer[..pos], [InformationElementType::GsnAddress as u8, 
             0, 16, 
             0xFA, 0xDE, 
             0xDE, 0xAD, 

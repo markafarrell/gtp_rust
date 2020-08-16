@@ -7,7 +7,9 @@ use messages::{
     echo_response,
     create_pdp_context_request,
     g_pdu,
-    MessageType};
+    MessageType,
+    MessageTraits
+};
 
 use crate::MTU;
 
@@ -34,24 +36,101 @@ impl Packet {
             }
         }
     }
+
+    pub fn parse(buffer: &[u8]) -> Option<(Self, usize)> {
+        let h = header::Header::parse(&buffer);
+
+        if let Some((mut h, length, pos)) = h {
+            match h.message_type() {
+                MessageType::EchoRequest => {
+                    if let Some((m, pos)) = echo_request::Message::parse(&buffer[pos..]) {
+                        h.set_payload_length(m.length());
+                        Some(
+                            (   
+                                Packet {
+                                    header: h,
+                                    message: Box::new(m)
+                                },
+                                pos
+                            )
+                        )
+                    }
+                    else {
+                        None
+                    }
+                },
+                MessageType::EchoResponse => {
+                    if let Some((m, pos)) = echo_response::Message::parse(&buffer[pos..]) {
+                        h.set_payload_length(m.length());
+                        Some(
+                            (   
+                                Packet {
+                                    header: h,
+                                    message: Box::new(m)
+                                },
+                                pos
+                            )
+                        )
+                    }
+                    else {
+                        None
+                    }
+                },
+                MessageType::CreatePDPContextRequest => {
+                    if let Some((m, pos)) = echo_response::Message::parse(&buffer[pos..]) {
+                        h.set_payload_length(m.length());
+                        Some(
+                            (   
+                                Packet {
+                                    header: h,
+                                    message: Box::new(m)
+                                },
+                                pos
+                            )
+                        )
+                    }
+                    else {
+                        None
+                    }
+                },
+                MessageType::GPDU => {
+                    if let Some((m, pos)) = g_pdu::Message::parse(&buffer[pos..]) {
+                        h.set_payload_length(m.length());
+                        Some(
+                            (   
+                                Packet {
+                                    header: h,
+                                    message: Box::new(m)
+                                },
+                                pos
+                            )
+                        )
+                    }
+                    else {
+                        None
+                    }
+                }
+            }
+        }
+        else {
+            None
+        }
+    }
+
     pub fn generate(&mut self, buffer: &mut[u8]) -> usize {
         self.header.set_payload_length(self.message.length());
 
-        let end = self.header.generate(buffer);
-        let end = end + self.message.generate(&mut buffer[end..]);
+        let pos = self.header.generate(buffer);
+        let pos = pos + self.message.generate(&mut buffer[pos..]);
 
-        end
+        pos
     }
     pub fn send_to<A: ToSocketAddrs>(&mut self, socket: &std::net::UdpSocket, addr: A) -> std::io::Result<usize> {        
         let mut buffer = [0; MTU];
 
-        let end = self.generate(&mut buffer);
+        let pos = self.generate(&mut buffer);
 
-        socket.send_to(&buffer[..end], addr)
-    }
-
-    pub fn parse(&mut self, _buffer: &[u8]) {
-        ()
+        socket.send_to(&buffer[..pos], addr)
     }
 }
 
@@ -87,9 +166,9 @@ mod tests {
 
         assert_eq!(p.header.message_type() as u8, MessageType::EchoRequest as u8);
 
-        let end = p.generate(&mut buffer);
+        let pos = p.generate(&mut buffer);
 
-        assert_eq!(buffer[..end], [
+        assert_eq!(buffer[..pos], [
             /* Flags */ 0b0011_0000, 
             /* Message Type */ MessageType::EchoRequest as u8,
             /* Length */ 0x00, 0x00,
@@ -102,9 +181,9 @@ mod tests {
 
         assert_eq!(p.header.message_type() as u8, MessageType::EchoResponse as u8);
 
-        let end = p.generate(&mut buffer);
+        let pos = p.generate(&mut buffer);
 
-        assert_eq!(buffer[..end], [
+        assert_eq!(buffer[..pos], [
             /* Flags */ 0b0011_0000, 
             /* Message Type */ MessageType::EchoResponse as u8,
             /* Length */ 0x00, 0x00,
@@ -212,6 +291,35 @@ mod tests {
         if let Ok(_) = p.message.attach_packet(&icmpv4)
         {
             p.send_to(&socket, "192.168.1.1:2152").expect("Couldn't send data.");
+        }
+    }
+    #[test]
+    fn test_parse() {
+        let p_bytes =  [
+            /* Flags */ 0b0011_0000, 
+            /* Message Type */ MessageType::GPDU as u8,
+            /* Length */ 0x00, 0x54,
+            /* TEID */ 0x87, 0x65, 0x43, 0x21,
+            /* icmp packeet */
+            0x45, 0x00, 0x00, 0x54, 0xaf, 0x2a, 0x40, 0x00,
+            0x3f, 0x01, 0xba, 0xcc, 0xc0, 0xa8, 0x00, 0xfa,
+            0x08, 0x08, 0x08, 0x08, 
+            0x08, 0x00, 0xa9, 0xfe, 0x03, 0xe9, 0x00, 0x01,
+            0x5a, 0x5f, 0x33, 0x5f, 0x00, 0x00, 0x00, 0x00,
+            0xfd, 0x85, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+            0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
+            0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27,
+            0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f,
+            0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37
+        ];
+        
+        if let Some((p, pos)) = Packet::parse(&p_bytes) {
+            assert_eq!(p.message.message_type() as u8, MessageType::GPDU as u8);
+            assert_eq!(p.header.length(), 0x54);
+        }
+        else {
+            assert!(false);
         }
     }
 }
