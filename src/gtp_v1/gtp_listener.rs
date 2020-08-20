@@ -2,7 +2,7 @@
 
 extern crate pcap;
 extern crate pnet;
-extern crate arp_cache;
+// extern crate arp_cache;
 
 use std::sync::Mutex;
 use std::sync::Arc;
