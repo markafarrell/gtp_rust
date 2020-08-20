@@ -39,7 +39,16 @@ pub struct IpListener
 }
 
 impl IpListener {
-    pub fn new(peer: IpAddr, /* i_teid: u32,*/ o_teid: u32, filter: String, statistics: Arc<Mutex<Statistics>>, interface_name: &str) -> Self {
+    pub fn new(
+        peer: IpAddr, 
+        /* i_teid: u32,*/ 
+        o_teid: u32, 
+        filter: String, 
+        statistics: Arc<Mutex<Statistics>>, 
+        interface_name: &str,
+        src: Option<IpAddr>,
+        dest: Option<IpAddr>
+    ) -> Self {
 
         let interfaces = datalink::interfaces();
 
@@ -59,8 +68,8 @@ impl IpListener {
             stats: statistics,
             socket: UdpSocket::bind("0.0.0.0:0").expect("couldn't bind to address"),
             interface,
-            src: None,
-            dest: None
+            src,
+            dest
         }
     }
 
