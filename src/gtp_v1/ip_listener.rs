@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::net::IpAddr;
 use std::net::UdpSocket;
 
-extern crate pcap;
+// extern crate pcap;
 
 use pnet::datalink::{self, NetworkInterface};
 

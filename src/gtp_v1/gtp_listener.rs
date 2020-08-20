@@ -1,6 +1,6 @@
 // This listens for GTP packets coming in and de-encapsulates them
 
-extern crate pcap;
+// extern crate pcap;
 extern crate pnet;
 // extern crate arp_cache;
 
