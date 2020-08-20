@@ -48,7 +48,7 @@ impl IpListener {
         interface_name: &str,
         src: Option<IpAddr>,
         dest: Option<IpAddr>
-    ) -> Self {
+    ) -> Option<Self> {
 
         let interfaces = datalink::interfaces();
 
@@ -60,7 +60,7 @@ impl IpListener {
         .next()
         .unwrap_or_else(|| panic!("No such network interface: {}", interface_name));
 
-        IpListener {
+        Some(IpListener {
             peer,
             // i_teid,
             o_teid,
@@ -70,7 +70,7 @@ impl IpListener {
             interface,
             src,
             dest
-        }
+        })
     }
 
     pub fn listen(&self) {
