@@ -1,10 +1,8 @@
-// use byteorder::{ByteOrder, NetworkEndian};
-
 use std::convert::TryInto;
 
 use super::{MessageTraits, MessageType};
 
-use super::information_elements;
+use super::information_elements::{self, InformationElement};
 
 pub struct Message {
     pub t_pdu: Vec<u8>
@@ -32,20 +30,8 @@ impl Message {
 
         Some((m, pos))
     }
-}
 
-impl MessageTraits for Message {
-    fn push_ie(&mut self, _ie: Box<dyn information_elements::InformationElementTraits>)
-    {
-        ()
-    }
-
-    fn pop_ie(&mut self) -> Option<Box<dyn information_elements::InformationElementTraits>>
-    {
-        None
-    }
-
-    fn attach_packet(&mut self, packet: &[u8]) -> Result<usize, String> {
+    pub fn attach_packet(&mut self, packet: &[u8]) -> Result<usize, String> {
         if packet.len() > 0xFFFF {
             return Err(format!("Packet to large. Length = {}", packet.len()));
         }
@@ -58,6 +44,18 @@ impl MessageTraits for Message {
         }
 
         Ok(packet.len())
+    }
+}
+
+impl MessageTraits for Message {
+    fn push_ie(&mut self, _ie: InformationElement)
+    {
+        ()
+    }
+
+    fn pop_ie(&mut self) -> Option<InformationElement>
+    {
+        None
     }
 
     fn message_type(&self) -> u8 {

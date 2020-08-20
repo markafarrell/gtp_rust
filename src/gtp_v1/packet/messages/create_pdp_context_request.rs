@@ -1,10 +1,10 @@
-// use byteorder::{ByteOrder, NetworkEndian};
-
 use super::{
     MessageTraits, 
     MessageType,
     information_elements
 };
+
+use super::information_elements::{InformationElementTraits, InformationElement};
 
 pub struct Message {
     /*
@@ -52,7 +52,7 @@ pub struct Message {
         Private Extension                           |    Optional               |   7.7.46
         --------------------------------------------|---------------------------|-------------------------
     */
-    pub information_elements: Vec<Box<dyn information_elements::InformationElementTraits>>
+    pub information_elements: Vec<InformationElement>
 }
 
 impl Message {
@@ -62,31 +62,27 @@ impl Message {
             information_elements: Vec::new()
         }
     }
-    pub fn parse(buffer: &[u8]) -> Option<(Self, usize)> {
+    pub fn parse(_buffer: &[u8]) -> Option<(Self, usize)> {
         None
     }
 }
 
 impl MessageTraits for Message {
-    fn push_ie(&mut self, ie: Box<dyn information_elements::InformationElementTraits>)
+    fn push_ie(&mut self, ie: InformationElement)
     {
         // TODO: Check here that the ie we are adding is allowed for this message
         self.information_elements.push(ie);
     }
 
-    fn pop_ie(&mut self) -> Option<Box<dyn information_elements::InformationElementTraits>>
+    fn pop_ie(&mut self) -> Option<InformationElement>
     {
         self.information_elements.pop()
-    }
-
-    fn attach_packet(&mut self, _packet: &[u8]) -> Result<usize,String>
-    {
-        Err("Packets cannot be attached to this message type".to_string())
     }
 
     fn message_type(&self) -> u8 {
         MessageType::CreatePDPContextRequest as u8
     }
+
     fn length(&self) -> u16 {
         let mut length = 0;
 
@@ -131,21 +127,19 @@ mod tests {
         let mut m = Message::new();
 
         m.information_elements.push(
-            Box::new(
-                information_elements::teid_data_i::InformationElement::new(0x12345678)
-            )
+            InformationElement::TeidDataI(information_elements::teid_data_i::InformationElement::new(0x12345678))
         );
 
         let nsapi = information_elements::nsapi::InformationElement::new(0xF);
 
         if let Ok(nsapi) = nsapi {
             m.information_elements.push(
-                Box::new(nsapi)
+                InformationElement::Nsapi(nsapi)
             );
         }
         
         m.information_elements.push(
-            Box::new(
+            InformationElement::GsnAddress(
                 information_elements::gsn_address::InformationElement::new(
                     IpAddr::V4(
                         Ipv4Addr::new(192,168,0,1)
@@ -155,7 +149,7 @@ mod tests {
         );
         
         m.information_elements.push(
-            Box::new(
+            InformationElement::GsnAddress(
                 information_elements::gsn_address::InformationElement::new(
                     IpAddr::V6(
                         Ipv6Addr::new(0xFADE, 0xDEAD, 0xBEEF, 0xCAFE, 0xFEED, 0xDEAF, 0xBEAD, 0xFACE)
@@ -165,7 +159,7 @@ mod tests {
         );
 
         m.information_elements.push(
-            Box::new(
+            InformationElement::QoSProfile(
                 information_elements::qos_profile::InformationElement::new(
                     8,
                     information_elements::qos_profile::DelayClass::BestEffort,
@@ -200,7 +194,7 @@ mod tests {
         let mut m = Message::new();
 
         m.information_elements.push(
-            Box::new(
+            InformationElement::TeidDataI(
                 information_elements::teid_data_i::InformationElement::new(0x12345678)
             )
         );
@@ -209,12 +203,12 @@ mod tests {
 
         if let Ok(nsapi) = nsapi {
             m.information_elements.push(
-                Box::new(nsapi)
+                InformationElement::Nsapi(nsapi)
             );
         }
         
         m.information_elements.push(
-            Box::new(
+            InformationElement::GsnAddress(
                 information_elements::gsn_address::InformationElement::new(
                     IpAddr::V4(
                         Ipv4Addr::new(192,168,0,1)
@@ -224,7 +218,7 @@ mod tests {
         );
         
         m.information_elements.push(
-            Box::new(
+            InformationElement::GsnAddress(
                 information_elements::gsn_address::InformationElement::new(
                     IpAddr::V6(
                         Ipv6Addr::new(0xFADE, 0xDEAD, 0xBEEF, 0xCAFE, 0xFEED, 0xDEAF, 0xBEAD, 0xFACE)
@@ -234,7 +228,7 @@ mod tests {
         );
 
         m.information_elements.push(
-            Box::new(
+            InformationElement::QoSProfile(
                 information_elements::qos_profile::InformationElement::new(
                     8,
                     information_elements::qos_profile::DelayClass::BestEffort,
