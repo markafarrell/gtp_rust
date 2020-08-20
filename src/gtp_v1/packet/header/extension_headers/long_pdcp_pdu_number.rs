@@ -35,7 +35,7 @@ impl ExtensionHeader {
         let mut pos = 0;
 
         // Parse the length
-        let length = buffer[0];
+        let _length = buffer[0];
         pos = pos + 1;
 
         // Read pdcp_pdu_number

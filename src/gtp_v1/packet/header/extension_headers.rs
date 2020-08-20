@@ -68,3 +68,72 @@ pub trait ExtensionHeaderTraits {
     fn length(&self) -> u8;
     fn generate(&self, buffer: &mut[u8]) -> usize;
 }
+
+pub enum ExtensionHeader {
+    LongPdcpPduNumber(long_pdcp_pdu_number::ExtensionHeader),
+    MbmsSi(mbms_support_indication::ExtensionHeader),
+    MsInfoChange(ms_info_change_reporting_support_indication::ExtensionHeader),
+    PdcpPduNum(pdcp_pdu_number::ExtensionHeader),
+    SuspendReq(suspend_request::ExtensionHeader),
+    SuspendRes(suspend_response::ExtensionHeader),
+    UDPPort(udp_port::ExtensionHeader)
+}
+
+impl ExtensionHeaderTraits for ExtensionHeader
+{
+    fn extension_header_type(&self) -> ExtensionHeaderType {
+        match self {
+            ExtensionHeader::LongPdcpPduNumber(eh) => eh.extension_header_type(),
+            ExtensionHeader::MbmsSi(eh) => eh.extension_header_type(),
+            ExtensionHeader::MsInfoChange(eh) => eh.extension_header_type(),
+            ExtensionHeader::PdcpPduNum(eh) => eh.extension_header_type(),
+            ExtensionHeader::SuspendReq(eh) => eh.extension_header_type(),
+            ExtensionHeader::SuspendRes(eh) => eh.extension_header_type(),
+            ExtensionHeader::UDPPort(eh) => eh.extension_header_type(),
+        }
+    }
+    fn set_next_extension_header_type(&mut self, next_extension_header_type: ExtensionHeaderType) {
+        match self {
+            ExtensionHeader::LongPdcpPduNumber(eh) => eh.set_next_extension_header_type(next_extension_header_type),
+            ExtensionHeader::MbmsSi(eh) => eh.set_next_extension_header_type(next_extension_header_type),
+            ExtensionHeader::MsInfoChange(eh) => eh.set_next_extension_header_type(next_extension_header_type),
+            ExtensionHeader::PdcpPduNum(eh) => eh.set_next_extension_header_type(next_extension_header_type),
+            ExtensionHeader::SuspendReq(eh) => eh.set_next_extension_header_type(next_extension_header_type),
+            ExtensionHeader::SuspendRes(eh) => eh.set_next_extension_header_type(next_extension_header_type),
+            ExtensionHeader::UDPPort(eh) => eh.set_next_extension_header_type(next_extension_header_type),
+        }
+    }
+    fn next_extension_header_type(&self) -> ExtensionHeaderType {
+        match self {
+            ExtensionHeader::LongPdcpPduNumber(eh) => eh.next_extension_header_type(),
+            ExtensionHeader::MbmsSi(eh) => eh.next_extension_header_type(),
+            ExtensionHeader::MsInfoChange(eh) => eh.next_extension_header_type(),
+            ExtensionHeader::PdcpPduNum(eh) => eh.next_extension_header_type(),
+            ExtensionHeader::SuspendReq(eh) => eh.next_extension_header_type(),
+            ExtensionHeader::SuspendRes(eh) => eh.next_extension_header_type(),
+            ExtensionHeader::UDPPort(eh) => eh.next_extension_header_type(),
+        }
+    }
+    fn length(&self) -> u8 {
+        match self {
+            ExtensionHeader::LongPdcpPduNumber(eh) => eh.length(),
+            ExtensionHeader::MbmsSi(eh) => eh.length(),
+            ExtensionHeader::MsInfoChange(eh) => eh.length(),
+            ExtensionHeader::PdcpPduNum(eh) => eh.length(),
+            ExtensionHeader::SuspendReq(eh) => eh.length(),
+            ExtensionHeader::SuspendRes(eh) => eh.length(),
+            ExtensionHeader::UDPPort(eh) => eh.length(),
+        }
+    }
+    fn generate(&self, buffer: &mut[u8]) -> usize {
+        match self {
+            ExtensionHeader::LongPdcpPduNumber(eh) => eh.generate(buffer),
+            ExtensionHeader::MbmsSi(eh) => eh.generate(buffer),
+            ExtensionHeader::MsInfoChange(eh) => eh.generate(buffer),
+            ExtensionHeader::PdcpPduNum(eh) => eh.generate(buffer),
+            ExtensionHeader::SuspendReq(eh) => eh.generate(buffer),
+            ExtensionHeader::SuspendRes(eh) => eh.generate(buffer),
+            ExtensionHeader::UDPPort(eh) => eh.generate(buffer),
+        }
+    }
+}

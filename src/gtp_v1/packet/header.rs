@@ -6,7 +6,7 @@ use super::messages::MessageType;
 
 pub mod extension_headers;
 
-use extension_headers::ExtensionHeaderTraits;
+use extension_headers::{ExtensionHeader, ExtensionHeaderTraits};
 
 /*                                  
                                         Bits
@@ -56,7 +56,7 @@ pub struct Header {
         depends upon the scenario. (For example, for GSM/GPRS to GSM/GPRS, the SNDCP N-PDU
         number is present in this field). */
 
-    pub extension_headers: Vec<Box<dyn extension_headers::ExtensionHeaderTraits>>
+    pub extension_headers: Vec<ExtensionHeader>
 }
 
 impl Header {
@@ -149,7 +149,7 @@ impl Header {
         self.n_pdu_number
     }
 
-    pub fn push_extension_header(&mut self, extension_header: Box<dyn extension_headers::ExtensionHeaderTraits>) {
+    pub fn push_extension_header(&mut self, extension_header: ExtensionHeader) {
         let len = self.extension_headers.len();
 
         if len > 0 {
@@ -163,7 +163,7 @@ impl Header {
         self.extension_headers.push(extension_header);
     }
 
-    pub fn pop_extension_header(&mut self) -> Option<Box<dyn extension_headers::ExtensionHeaderTraits>> {
+    pub fn pop_extension_header(&mut self) -> Option<ExtensionHeader> {
         let extension_header = self.extension_headers.pop();
 
         if extension_header.is_some() {
@@ -293,7 +293,7 @@ impl Header {
                         let eh = extension_headers::mbms_support_indication::ExtensionHeader::parse(&buffer[pos..]);
                         if let Some((eh, eh_pos)) = eh {
                             next_extension_header_type = eh.next_extension_header_type() as u8;
-                            h.push_extension_header(Box::new(eh));
+                            h.push_extension_header(ExtensionHeader::MbmsSi(eh));
                             pos = pos + eh_pos;
                         }
                     },
@@ -301,7 +301,7 @@ impl Header {
                         let eh = extension_headers::mbms_support_indication::ExtensionHeader::parse(&buffer[pos..]);
                         if let Some((eh, eh_pos)) = eh {
                             next_extension_header_type = eh.next_extension_header_type() as u8;
-                            h.push_extension_header(Box::new(eh));
+                            h.push_extension_header(ExtensionHeader::MbmsSi(eh));
                             pos = pos + eh_pos;
                         }
                     },
@@ -309,7 +309,7 @@ impl Header {
                         let eh = extension_headers::ms_info_change_reporting_support_indication::ExtensionHeader::parse(&buffer[pos..]);
                         if let Some((eh, eh_pos)) = eh {
                             next_extension_header_type = eh.next_extension_header_type() as u8;
-                            h.push_extension_header(Box::new(eh));
+                            h.push_extension_header(ExtensionHeader::MsInfoChange(eh));
                             pos = pos + eh_pos;
                         }
                     },
@@ -317,7 +317,7 @@ impl Header {
                         let eh = extension_headers::pdcp_pdu_number::ExtensionHeader::parse(&buffer[pos..]);
                         if let Some((eh, eh_pos)) = eh {
                             next_extension_header_type = eh.next_extension_header_type() as u8;
-                            h.push_extension_header(Box::new(eh));
+                            h.push_extension_header(ExtensionHeader::PdcpPduNum(eh));
                             pos = pos + eh_pos;
                         }
                     },
@@ -325,7 +325,7 @@ impl Header {
                         let eh = extension_headers::suspend_request::ExtensionHeader::parse(&buffer[pos..]);
                         if let Some((eh, eh_pos)) = eh {
                             next_extension_header_type = eh.next_extension_header_type() as u8;
-                            h.push_extension_header(Box::new(eh));
+                            h.push_extension_header(ExtensionHeader::SuspendReq(eh));
                             pos = pos + eh_pos;
                         }
                     },
@@ -333,7 +333,7 @@ impl Header {
                         let eh = extension_headers::suspend_response::ExtensionHeader::parse(&buffer[pos..]);
                         if let Some((eh, eh_pos)) = eh {
                             next_extension_header_type = eh.next_extension_header_type() as u8;
-                            h.push_extension_header(Box::new(eh));
+                            h.push_extension_header(ExtensionHeader::SuspendRes(eh));
                             pos = pos + eh_pos;
                         }
                     },
@@ -341,7 +341,7 @@ impl Header {
                         let eh = extension_headers::udp_port::ExtensionHeader::parse(&buffer[pos..]);
                         if let Some((eh, eh_pos)) = eh {
                             next_extension_header_type = eh.next_extension_header_type() as u8;
-                            h.push_extension_header(Box::new(eh));
+                            h.push_extension_header(ExtensionHeader::UDPPort(eh));
                             pos = pos + eh_pos;
                         }
                     },
@@ -512,7 +512,7 @@ mod tests {
 
         let mut h = Header::new(MessageType::EchoRequest);
 
-        let mbms_si = Box::new(mbms_support_indication::ExtensionHeader::new());
+        let mbms_si = ExtensionHeader::MbmsSi(mbms_support_indication::ExtensionHeader::new());
 
         h.push_extension_header(mbms_si);
 
@@ -527,7 +527,7 @@ mod tests {
             /* MBMS SI Ext Header */ 0x01, 0xFF, 0xFF, ExtensionHeaderType::NoMore as u8
             ]);
 
-        let s_req = Box::new(suspend_request::ExtensionHeader::new());
+        let s_req = ExtensionHeader::SuspendReq(suspend_request::ExtensionHeader::new());
 
         h.push_extension_header(s_req);
 
@@ -543,11 +543,11 @@ mod tests {
             /* Suspend Request Ext Header */ 0x01, 0xFF, 0xFF, ExtensionHeaderType::NoMore as u8
             ]);
 
-        let mut pdcp_pdu_number = Box::new(pdcp_pdu_number::ExtensionHeader::new());
+        let mut pdcp_pdu_number = pdcp_pdu_number::ExtensionHeader::new();
 
         pdcp_pdu_number.set_pdcp_pdu_number(0x1234);
 
-        h.push_extension_header(pdcp_pdu_number);
+        h.push_extension_header(ExtensionHeader::PdcpPduNum(pdcp_pdu_number));
 
         let pos = h.generate(&mut buffer);
 
@@ -668,7 +668,7 @@ mod tests {
 
         let h = Header::parse(&header_bytes);
 
-        if let Some((h, length, pos)) = h {
+        if let Some((h, _length, pos)) = h {
             assert_eq!(h.message_type as u8, MessageType::EchoRequest as u8);
             assert_eq!(h.length(), 0x0d);
             assert_eq!(h.teid(), 0x12345678);

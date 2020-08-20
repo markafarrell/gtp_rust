@@ -30,7 +30,7 @@ impl ExtensionHeader {
     pub fn parse(buffer: &[u8]) -> Option<(Self, usize)> {
         let mut pos = 0;
         // Parse the length
-        let length = buffer[0];
+        let _length = buffer[0];
         pos = pos + 1;
 
         let pdcp_pdu_number = NetworkEndian::read_u16(&buffer[1..3]);

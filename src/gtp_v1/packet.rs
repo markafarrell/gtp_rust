@@ -2,115 +2,45 @@ pub mod header;
 pub mod messages;
 
 use std::net::ToSocketAddrs;
-use messages::{
-    echo_request,
-    echo_response,
-    create_pdp_context_request,
-    g_pdu,
-    MessageType,
-    MessageTraits
-};
+use messages::{MessageType, MessageTraits};
 
 use crate::MTU;
 
 pub struct Packet {
     pub header: header::Header,
-    pub message: Box<dyn messages::MessageTraits>
+    pub message: messages::Message
 }
 
 impl Packet {
     pub fn new(message_type: MessageType) -> Self {
         Packet {
             header: header::Header::new(message_type),
-            message: { 
-                match message_type {
-                    MessageType::EchoRequest => 
-                        Box::new(echo_request::Message::new()),
-                    MessageType::EchoResponse => 
-                        Box::new(echo_response::Message::new()),
-                    MessageType::CreatePDPContextRequest => 
-                        Box::new(create_pdp_context_request::Message::new()),
-                    MessageType::GPDU => 
-                        Box::new(g_pdu::Message::new())
-                }
-            }
+            message: messages::Message::new(message_type)
         }
     }
 
     pub fn parse(buffer: &[u8]) -> Option<(Self, usize)> {
         let h = header::Header::parse(&buffer);
 
-        if let Some((mut h, length, pos)) = h {
-            match h.message_type() {
-                MessageType::EchoRequest => {
-                    if let Some((m, pos)) = echo_request::Message::parse(&buffer[pos..]) {
-                        h.set_payload_length(m.length());
-                        Some(
-                            (   
-                                Packet {
-                                    header: h,
-                                    message: Box::new(m)
-                                },
-                                pos
-                            )
-                        )
-                    }
-                    else {
-                        None
-                    }
-                },
-                MessageType::EchoResponse => {
-                    if let Some((m, pos)) = echo_response::Message::parse(&buffer[pos..]) {
-                        h.set_payload_length(m.length());
-                        Some(
-                            (   
-                                Packet {
-                                    header: h,
-                                    message: Box::new(m)
-                                },
-                                pos
-                            )
-                        )
-                    }
-                    else {
-                        None
-                    }
-                },
-                MessageType::CreatePDPContextRequest => {
-                    if let Some((m, pos)) = echo_response::Message::parse(&buffer[pos..]) {
-                        h.set_payload_length(m.length());
-                        Some(
-                            (   
-                                Packet {
-                                    header: h,
-                                    message: Box::new(m)
-                                },
-                                pos
-                            )
-                        )
-                    }
-                    else {
-                        None
-                    }
-                },
-                MessageType::GPDU => {
-                    if let Some((m, pos)) = g_pdu::Message::parse(&buffer[pos..]) {
-                        h.set_payload_length(m.length());
-                        Some(
-                            (   
-                                Packet {
-                                    header: h,
-                                    message: Box::new(m)
-                                },
-                                pos
-                            )
-                        )
-                    }
-                    else {
-                        None
-                    }
-                }
+        if let Some((mut h, _length, h_pos)) = h {
+            let m = messages::Message::parse(h.message_type(), &buffer[h_pos..]);
+
+            if let Some((m, m_pos)) = m {
+                h.set_payload_length(m.length());
+                Some(
+                    (
+                        Packet {
+                            header: h,
+                            message: m
+                        },
+                        h_pos + m_pos
+                    )
+                )
             }
+            else {
+                None
+            }
+            
         }
         else {
             None
@@ -138,25 +68,14 @@ impl Packet {
 mod tests {
     use super::*;
 
-    use std::net::{
-        UdpSocket,
-        IpAddr,
-        Ipv4Addr,
-        Ipv6Addr
-    };
+    use std::net::{UdpSocket, IpAddr, Ipv4Addr, Ipv6Addr};
 
     use crate::MTU;
 
-    use messages::{
-        MessageType,
-        information_elements
-    };
+    use messages::{MessageType, Message};
+    use messages::information_elements::{self, InformationElement};
 
-    use header::extension_headers::{
-        mbms_support_indication,
-        pdcp_pdu_number,
-        suspend_request
-    };
+    use header::extension_headers::{ExtensionHeader, mbms_support_indication, pdcp_pdu_number, suspend_request};
 
     #[test]
     fn test_generate() {
@@ -209,22 +128,22 @@ mod tests {
         p.header.set_n_pdu_number(0x12);
         p.header.enable_n_pdu_number();
         
-        let mbms_si = Box::new(mbms_support_indication::ExtensionHeader::new());
-        p.header.push_extension_header(mbms_si);
+        let mbms_si = mbms_support_indication::ExtensionHeader::new();
+        p.header.push_extension_header(ExtensionHeader::MbmsSi(mbms_si));
 
-        let mut pdcp_pdu_number = Box::new(pdcp_pdu_number::ExtensionHeader::new());
+        let mut pdcp_pdu_number = pdcp_pdu_number::ExtensionHeader::new();
         pdcp_pdu_number.set_pdcp_pdu_number(5678);
-        p.header.push_extension_header(pdcp_pdu_number);
+        p.header.push_extension_header(ExtensionHeader::PdcpPduNum(pdcp_pdu_number));
         
-        let s_req = Box::new(suspend_request::ExtensionHeader::new());
-        p.header.push_extension_header(s_req);
+        let s_req = suspend_request::ExtensionHeader::new();
+        p.header.push_extension_header(ExtensionHeader::SuspendReq(s_req));
 
         p.send_to(&socket, "192.168.1.1:2123").expect("Couldn't send data.");
 
         let mut p = Packet::new(MessageType::CreatePDPContextRequest);
         
         p.message.push_ie(
-            Box::new(
+            InformationElement::TeidDataI(
                 information_elements::teid_data_i::InformationElement::new(0x12345678)
             )
         );
@@ -233,12 +152,12 @@ mod tests {
 
         if let Ok(nsapi) = nsapi {
             p.message.push_ie(
-                Box::new(nsapi)
+                InformationElement::Nsapi(nsapi)
             );
         }
         
         p.message.push_ie(
-            Box::new(
+            InformationElement::GsnAddress(
                 information_elements::gsn_address::InformationElement::new(
                     IpAddr::V4(
                         Ipv4Addr::new(192,168,0,1)
@@ -248,7 +167,7 @@ mod tests {
         );
         
         p.message.push_ie(
-            Box::new(
+            InformationElement::GsnAddress(
                 information_elements::gsn_address::InformationElement::new(
                     IpAddr::V6(
                         Ipv6Addr::new(0xFADE, 0xDEAD, 0xBEEF, 0xCAFE, 0xFEED, 0xDEAF, 0xBEAD, 0xFACE)
@@ -258,7 +177,7 @@ mod tests {
         );
 
         p.message.push_ie(
-            Box::new(
+            InformationElement::QoSProfile(
                 information_elements::qos_profile::InformationElement::new(
                     8,
                     information_elements::qos_profile::DelayClass::BestEffort,
@@ -288,11 +207,15 @@ mod tests {
             0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37
         ];
         
-        if let Ok(_) = p.message.attach_packet(&icmpv4)
-        {
-            p.send_to(&socket, "192.168.1.1:2152").expect("Couldn't send data.");
+        match p.message {
+            Message::GPDU(ref mut m) => {
+                m.attach_packet(&icmpv4).unwrap();
+                p.send_to(&socket, "192.168.1.1:2152").expect("Couldn't send data.");
+            }
+            _ => {} // Do nothing
         }
     }
+
     #[test]
     fn test_parse() {
         let p_bytes =  [
@@ -314,7 +237,7 @@ mod tests {
             0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37
         ];
         
-        if let Some((p, pos)) = Packet::parse(&p_bytes) {
+        if let Some((p, _pos)) = Packet::parse(&p_bytes) {
             assert_eq!(p.message.message_type() as u8, MessageType::GPDU as u8);
             assert_eq!(p.header.length(), 0x54);
         }

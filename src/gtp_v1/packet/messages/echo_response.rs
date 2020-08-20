@@ -1,8 +1,6 @@
-// use byteorder::{ByteOrder, NetworkEndian};
-
 use super::{MessageTraits, MessageType};
 
-use super::information_elements;
+use super::information_elements::{self, InformationElement};
 
 pub struct Message {
 }
@@ -13,25 +11,20 @@ impl Message {
     pub fn new() -> Message {
         Message {}
     }
-    pub fn parse(buffer: &[u8]) -> Option<(Self, usize)> {
+    pub fn parse(_buffer: &[u8]) -> Option<(Self, usize)> {
         Some((Message::new(),0))
     }
 }
 
 impl MessageTraits for Message {
-    fn push_ie(&mut self, _ie: Box<dyn information_elements::InformationElementTraits>)
+    fn push_ie(&mut self, _ie: InformationElement)
     {
         ()
     }
 
-    fn pop_ie(&mut self) -> Option<Box<dyn information_elements::InformationElementTraits>>
+    fn pop_ie(&mut self) -> Option<InformationElement>
     {
         None
-    }
-
-    fn attach_packet(&mut self, _packet: &[u8]) -> Result<usize,String>
-    {
-        Err("Packets cannot be attached to this message type".to_string())
     }
 
     fn message_type(&self) -> u8 {
