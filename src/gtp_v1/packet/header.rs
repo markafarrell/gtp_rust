@@ -243,7 +243,7 @@ impl Header {
         (version, pt, e, s, pn)
     }
 
-    pub fn parse(buffer: &[u8]) -> Option<(Self, u16, usize)> {
+    pub fn parse(buffer: &[u8]) -> Option<(Self, usize)> {
         let (version, pt, e, s, pn) = Self::parse_flags(buffer[0]);
 
         if version != 1 {
@@ -260,7 +260,7 @@ impl Header {
 
         let mut h = Self::new(message_type);
 
-        let length = NetworkEndian::read_u16(&buffer[LENGTH]);
+        let _length = NetworkEndian::read_u16(&buffer[LENGTH]);
 
         let teid = NetworkEndian::read_u32(&buffer[TEID]);
         h.set_teid(teid);
@@ -349,7 +349,7 @@ impl Header {
             }
         }
 
-        Some((h, length, pos))
+        Some((h, pos))
     }
 }
 
@@ -668,7 +668,7 @@ mod tests {
 
         let h = Header::parse(&header_bytes);
 
-        if let Some((h, _length, pos)) = h {
+        if let Some((h, pos)) = h {
             assert_eq!(h.message_type as u8, MessageType::EchoRequest as u8);
             assert_eq!(h.length(), 0x0d);
             assert_eq!(h.teid(), 0x12345678);

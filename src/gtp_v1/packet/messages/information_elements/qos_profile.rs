@@ -196,18 +196,18 @@ pub struct InformationElement {
     peak_throughput: PeakThroughput,
     precedence_class: PrecedenceClass,
     mean_throughput: MeanThroughput,
-    traffic_class: Option<TrafficClass>,
-    delivery_order: Option<DeliveryOrder>,
-    delivery_of_erroneus_sdus: Option<DeliveryOfErroneusSDUs>,
-    maximum_sdu_size: Option<u8>,
-    maximum_uplink_bitrate: Option<u32>,
-    maximum_downlink_bitrate: Option<u32>,
-    residual_ber: Option<ResidualBitErrorRate>,
-    sdu_error_ratio: Option<SDUErrorRatio>,
-    transfer_delay: Option<u32>,
-    traffic_handling_priority: Option<TrafficHandlingPriority>,
-    guaranteed_uplink_bitrate: Option<u32>,
-    guaranteed_downlink_bitrate: Option<u32>,
+    // traffic_class: Option<TrafficClass>,
+    // delivery_order: Option<DeliveryOrder>,
+    // delivery_of_erroneus_sdus: Option<DeliveryOfErroneusSDUs>,
+    // maximum_sdu_size: Option<u8>,
+    // maximum_uplink_bitrate: Option<u32>,
+    // maximum_downlink_bitrate: Option<u32>,
+    // residual_ber: Option<ResidualBitErrorRate>,
+    // sdu_error_ratio: Option<SDUErrorRatio>,
+    // transfer_delay: Option<u32>,
+    // traffic_handling_priority: Option<TrafficHandlingPriority>,
+    // guaranteed_uplink_bitrate: Option<u32>,
+    // guaranteed_downlink_bitrate: Option<u32>,
 }
 
 impl InformationElement {
@@ -225,19 +225,23 @@ impl InformationElement {
             peak_throughput,
             precedence_class,
             mean_throughput,
-            traffic_class: None,
-            delivery_order: None,
-            delivery_of_erroneus_sdus: None,
-            maximum_sdu_size: None,
-            maximum_uplink_bitrate: None,
-            maximum_downlink_bitrate: None,
-            residual_ber: None,
-            sdu_error_ratio: None,
-            transfer_delay: None,
-            traffic_handling_priority: None,
-            guaranteed_uplink_bitrate: None,
-            guaranteed_downlink_bitrate: None,
+            // traffic_class: None,
+            // delivery_order: None,
+            // delivery_of_erroneus_sdus: None,
+            // maximum_sdu_size: None,
+            // maximum_uplink_bitrate: None,
+            // maximum_downlink_bitrate: None,
+            // residual_ber: None,
+            // sdu_error_ratio: None,
+            // transfer_delay: None,
+            // traffic_handling_priority: None,
+            // guaranteed_uplink_bitrate: None,
+            // guaranteed_downlink_bitrate: None,
         }
+    }
+
+    pub fn parse(_buffer: &[u8]) -> Option<(Self, usize)> {
+        None
     }
 }
 
@@ -281,9 +285,6 @@ impl InformationElementTraits for InformationElement {
         // TODO: Generate the rest of the optional fields
 
         pos
-    }
-    
-    fn parse(&mut self, _buffer: &[u8]) {
     }
 }
 

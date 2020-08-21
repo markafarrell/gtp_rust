@@ -28,6 +28,11 @@ impl InformationElement {
             teid: teid
         }
     }
+
+    pub fn parse(_buffer: &[u8]) -> Option<(Self, usize)> {
+        None
+    }
+
     pub fn teid(&self) -> u32 {
         self.teid
     }
@@ -58,9 +63,6 @@ impl InformationElementTraits for InformationElement {
         pos = pos + 4;
 
         pos
-    }
-    
-    fn parse(&mut self, _buffer: &[u8]) {
     }
 }
 

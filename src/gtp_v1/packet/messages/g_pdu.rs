@@ -2,48 +2,47 @@ use std::convert::TryInto;
 
 use super::{MessageTraits, MessageType};
 
-use super::information_elements::{self, InformationElement};
+use super::information_elements::InformationElement;
 
 pub struct Message {
     pub t_pdu: Vec<u8>
 }
 
-const MESSAGE_TYPE: u8 = MessageType::GPDU as u8;
-
 impl Message {
-    pub fn new() -> Self {
-        Message {
-            t_pdu: Vec::new()
-        }
-    }
+    pub fn new(packet: &[u8]) -> Result<Self, String> {
 
-    pub fn parse(buffer: &[u8]) -> Option<(Self, usize)> {
-
-        let mut m =  Message::new();
-        let mut pos = 0;
-        
-        for i in 0..buffer.len()
-        {
-            m.t_pdu.push(buffer[i]);
-            pos = pos + 1;
-        }
-
-        Some((m, pos))
-    }
-
-    pub fn attach_packet(&mut self, packet: &[u8]) -> Result<usize, String> {
         if packet.len() > 0xFFFF {
             return Err(format!("Packet to large. Length = {}", packet.len()));
         }
 
-        self.t_pdu = Vec::new();
+        let mut m = Message {
+            t_pdu: Vec::new()
+        };
+        
+        m.t_pdu = Vec::new();
         
         for i in 0..packet.len()
         {
-            self.t_pdu.push(packet[i]);
+            m.t_pdu.push(packet[i]);
         }
 
-        Ok(packet.len())
+        Ok(m)
+    }
+
+    pub fn parse(buffer: &[u8]) -> Option<(Self, usize)> {
+
+        let m = Message::new(buffer);
+
+        if let Ok(m) = m {
+            let pos = m.t_pdu.len();
+            Some((m, pos))
+        }
+        else
+        {
+            None
+        }
+
+        
     }
 }
 
@@ -58,12 +57,14 @@ impl MessageTraits for Message {
         None
     }
 
-    fn message_type(&self) -> u8 {
-        MESSAGE_TYPE
+    fn message_type(&self) -> MessageType {
+        MessageType::GPDU
     }
+
     fn length(&self) -> u16 {
         self.t_pdu.len().try_into().unwrap()
     }
+
     fn generate(&self, buffer: &mut[u8]) -> usize {
         for i in 0..self.t_pdu.len()
         {
@@ -77,10 +78,10 @@ impl MessageTraits for Message {
 mod tests {
     use super::*;
     use crate::MTU;
-    use crate::gtp_v1::packet::messages::MessageType; 
+    use crate::gtp_v1::packet::messages::{MessageType, MessageTraits}; 
 
     #[test]
-    fn test_attach_packet() {
+    fn test_new() {
         let icmpv4 = [
             0x45, 0x00, 0x00, 0x54, 0xaf, 0x2a, 0x40, 0x00,
             0x3f, 0x01, 0xba, 0xcc, 0xc0, 0xa8, 0x00, 0xfa,
@@ -95,9 +96,9 @@ mod tests {
             0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37
         ];
 
-        let mut m = Message::new();
+        let m = Message::new(&icmpv4);
         
-        if let Ok(_) = m.attach_packet(&icmpv4) {
+        if let Ok(_) = m {
             assert!(true)
         }
         else {
@@ -107,9 +108,9 @@ mod tests {
 
         let too_big = [ 0; 0x1FFFF ];
 
-        let mut m = Message::new();
+        let m = Message::new(&too_big);
         
-        if let Ok(_) = m.attach_packet(&too_big) {
+        if let Ok(_) = m {
             assert!(false)
         }
         else {
@@ -136,9 +137,9 @@ mod tests {
             0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37
         ];
 
-        let mut m = Message::new();
+        let m = Message::new(&icmpv4);
         
-        if let Ok(_) = m.attach_packet(&icmpv4) {
+        if let Ok(m) = m {
             let pos = m.generate(&mut buffer);
 
             for i in 0..pos {
@@ -170,9 +171,9 @@ mod tests {
             0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37
         ];
 
-        let mut m = Message::new();
+        let m = Message::new(&icmpv4);
         
-        if let Ok(_) = m.attach_packet(&icmpv4) {
+        if let Ok(m) = m {
             assert_eq!(m.length(), 84)
         }
         else {
@@ -183,9 +184,14 @@ mod tests {
 
     #[test]
     fn test_message_type() {
-        let m = Message::new();
-
-        assert_eq!(m.message_type(), MessageType::GPDU as u8)    
+        let m = Message::new(&[]);
+        
+        if let Ok(m) = m {
+            assert_eq!(m.message_type() as u8, MessageType::GPDU as u8);
+        }
+        else {
+            assert!(false);
+        }
     }
 
     #[test]

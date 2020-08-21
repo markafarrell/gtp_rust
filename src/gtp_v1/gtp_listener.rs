@@ -17,7 +17,7 @@ use pnet::transport;
 use super::listener_statistics::Statistics;
 
 use super::packet::Packet as GtpPacket;
-use super::packet::messages::{Message, MessageType};
+use super::packet::messages::{Message, echo_response};
 
 use crate::MTU;
 
@@ -78,7 +78,7 @@ impl GtpListener {
                             (*s).rx_gtp_echo_request_add(1);
                             drop(s);
                             
-                            let mut echo_response = GtpPacket::new(MessageType::EchoResponse);
+                            let mut echo_response = GtpPacket::new(Message::EchoResponse(echo_response::Message::new()));
                             echo_response.header.set_teid(self.o_teid);
                             if let Ok(_n) = echo_response.send_to(&self.socket, src_addr){
                                 let mut s = self.stats.lock().unwrap();

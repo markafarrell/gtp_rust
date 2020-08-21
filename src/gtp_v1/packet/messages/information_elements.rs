@@ -17,7 +17,6 @@ pub enum InformationElementType
 pub trait InformationElementTraits {
     fn length(&self) -> u16;
     fn generate(&self, buffer: &mut[u8]) -> usize;
-    fn parse(&mut self, buffer: &[u8]);
     fn information_element_type(&self) -> InformationElementType;
 }
 
@@ -49,16 +48,6 @@ impl InformationElementTraits for InformationElement
             InformationElement::Nsapi(ie) => ie.generate(buffer),
             InformationElement::GsnAddress(ie) => ie.generate(buffer),
             InformationElement::QoSProfile(ie) => ie.generate(buffer),
-        }
-    }
-
-    fn parse(&mut self, buffer: &[u8]) {
-        match self {
-            InformationElement::Imsi(ie) => ie.parse(buffer),
-            InformationElement::TeidDataI(ie) => ie.parse(buffer),
-            InformationElement::Nsapi(ie) => ie.parse(buffer),
-            InformationElement::GsnAddress(ie) => ie.parse(buffer),
-            InformationElement::QoSProfile(ie) => ie.parse(buffer),
         }
     }
 

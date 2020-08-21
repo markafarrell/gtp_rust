@@ -32,6 +32,10 @@ impl InformationElement {
             gsn_address: address
         }
     }
+    
+    pub fn parse(_buffer: &[u8]) -> Option<(Self, usize)> {
+        None
+    }
 }
 
 impl InformationElementTraits for InformationElement {
@@ -77,9 +81,6 @@ impl InformationElementTraits for InformationElement {
         };
 
         pos
-    }
-    
-    fn parse(&mut self, _buffer: &[u8]) {
     }
 }
 

@@ -2,7 +2,10 @@ pub mod header;
 pub mod messages;
 
 use std::net::ToSocketAddrs;
-use messages::{MessageType, MessageTraits};
+use messages::{
+    Message, 
+    MessageTraits,
+};
 
 use crate::MTU;
 
@@ -12,17 +15,17 @@ pub struct Packet {
 }
 
 impl Packet {
-    pub fn new(message_type: MessageType) -> Self {
+    pub fn new(message: Message) -> Self {
         Packet {
-            header: header::Header::new(message_type),
-            message: messages::Message::new(message_type)
+            header: header::Header::new(message.message_type()),
+            message: message
         }
     }
 
     pub fn parse(buffer: &[u8]) -> Option<(Self, usize)> {
         let h = header::Header::parse(&buffer);
 
-        if let Some((mut h, _length, h_pos)) = h {
+        if let Some((mut h, h_pos)) = h {
             let m = messages::Message::parse(h.message_type(), &buffer[h_pos..]);
 
             if let Some((m, m_pos)) = m {
@@ -72,7 +75,7 @@ mod tests {
 
     use crate::MTU;
 
-    use messages::{MessageType, Message};
+    use messages::{MessageType, Message, echo_request, echo_response, create_pdp_context_request, g_pdu};
     use messages::information_elements::{self, InformationElement};
 
     use header::extension_headers::{ExtensionHeader, mbms_support_indication, pdcp_pdu_number, suspend_request};
@@ -81,7 +84,7 @@ mod tests {
     fn test_generate() {
         let mut buffer = [0; MTU];
 
-        let mut p = Packet::new(MessageType::EchoRequest);
+        let mut p = Packet::new(Message::EchoRequest(echo_request::Message::new()));
 
         assert_eq!(p.header.message_type() as u8, MessageType::EchoRequest as u8);
 
@@ -96,7 +99,7 @@ mod tests {
         
         buffer = [0; MTU];
 
-        let mut p = Packet::new(MessageType::EchoResponse);
+        let mut p = Packet::new(Message::EchoResponse(echo_response::Message::new()));
 
         assert_eq!(p.header.message_type() as u8, MessageType::EchoResponse as u8);
 
@@ -114,11 +117,11 @@ mod tests {
     fn test_send() {
         let socket = UdpSocket::bind("0.0.0.0:0").expect("couldn't bind to address");
 
-        let mut p = Packet::new(MessageType::EchoRequest);
+        let mut p = Packet::new(Message::EchoRequest(echo_request::Message::new()));
 
         p.send_to(&socket, "192.168.1.1:2123").expect("Couldn't send data.");
 
-        let mut p = Packet::new(MessageType::EchoResponse);
+        let mut p = Packet::new(Message::EchoResponse(echo_response::Message::new()));
 
         p.header.set_teid(0x12345678);
 
@@ -140,7 +143,7 @@ mod tests {
 
         p.send_to(&socket, "192.168.1.1:2123").expect("Couldn't send data.");
 
-        let mut p = Packet::new(MessageType::CreatePDPContextRequest);
+        let mut p = Packet::new(Message::CreatePDPContextRequest(create_pdp_context_request::Message::new()));
         
         p.message.push_ie(
             InformationElement::TeidDataI(
@@ -191,7 +194,7 @@ mod tests {
 
         p.send_to(&socket, "192.168.1.1:2123").expect("Couldn't send data.");
 
-        let mut p = Packet::new(MessageType::GPDU);
+        
 
         let icmpv4 = [
             0x45, 0x00, 0x00, 0x54, 0xaf, 0x2a, 0x40, 0x00,
@@ -207,12 +210,14 @@ mod tests {
             0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37
         ];
         
-        match p.message {
-            Message::GPDU(ref mut m) => {
-                m.attach_packet(&icmpv4).unwrap();
-                p.send_to(&socket, "192.168.1.1:2152").expect("Couldn't send data.");
-            }
-            _ => {} // Do nothing
+        let gpdu = g_pdu::Message::new(&icmpv4);
+
+        if let Ok(gpdu) = gpdu {
+            p = Packet::new(Message::GPDU(gpdu));
+            p.send_to(&socket, "192.168.1.1:2152").expect("Could not send packet");
+        }
+        else {
+            assert!(false);
         }
     }
 

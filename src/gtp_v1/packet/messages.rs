@@ -28,7 +28,7 @@ impl From<u8> for MessageType {
 }
 
 pub trait MessageTraits {
-    fn message_type(&self) -> u8;
+    fn message_type(&self) -> MessageType;
     fn length(&self) -> u16;
     fn generate(&self, buffer: &mut[u8]) -> usize;
     fn push_ie(&mut self, ie: InformationElement);
@@ -43,19 +43,6 @@ pub enum Message {
 }
 
 impl Message {
-    pub fn new(message_type: MessageType) -> Self {
-        match message_type {
-            MessageType::EchoRequest => 
-                Message::EchoRequest(echo_request::Message::new()),
-            MessageType::EchoResponse => 
-                Message::EchoResponse(echo_response::Message::new()),
-            MessageType::CreatePDPContextRequest => 
-                Message::CreatePDPContextRequest(create_pdp_context_request::Message::new()),
-            MessageType::GPDU => 
-                Message::GPDU(g_pdu::Message::new()),
-        }
-    }
-
     pub fn parse(message_type: MessageType, buffer: &[u8]) -> Option<(Self, usize)> {
         match message_type {
             MessageType::EchoRequest => {
@@ -115,7 +102,7 @@ impl Message {
 }
 
 impl MessageTraits for Message {
-    fn message_type(&self) -> u8 {
+    fn message_type(&self) -> MessageType {
         match self {
             Message::EchoRequest(m) => m.message_type(),
             Message::EchoResponse(m) => m.message_type(),

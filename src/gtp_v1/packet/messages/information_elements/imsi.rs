@@ -49,6 +49,10 @@ impl InformationElement {
         })
     }
 
+    pub fn parse(_buffer: &[u8]) -> Option<(Self, usize)> {
+        None
+    }
+
     pub fn generate_tbcd_imsi(&self) -> [u8; 8] {
         let mut tbcd_imsi = [0xFF; 8];
 
@@ -101,9 +105,6 @@ impl InformationElementTraits for InformationElement {
         }
 
         pos
-    }
-    
-    fn parse(&mut self, _buffer: &[u8]) {
     }
 }
 
