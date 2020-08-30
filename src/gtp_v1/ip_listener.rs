@@ -19,8 +19,8 @@ use super::listener_statistics::Statistics;
 
 use super::packet::Packet as GtpPacket;
 use super::packet::messages::{
-    MessageType,
-    Message
+    Message,
+    g_pdu
 };
 
 pub struct IpListener
@@ -127,20 +127,17 @@ impl IpListener {
         }
     }
 
-fn send_gtp_packet(&self, gtp_payload: &[u8]) {
-        let mut p = GtpPacket::new(MessageType::GPDU);
-        p.header.set_teid(self.o_teid);
+    fn send_gtp_packet(&self, gtp_payload: &[u8]) {
+        let gpdu = g_pdu::Message::new(gtp_payload);
 
-        match p.message {
-            Message::GPDU(ref mut m) => {
-                // We skip the first 2 packets of the payload as they contain the ethertype
-                m.attach_packet(gtp_payload).unwrap();
-                p.send_to(&self.socket, (self.peer, 2152)).expect("Couldn't send GTP Packet");
-                let mut s = self.stats.lock().unwrap();
-                (*s).tx_gtp_add(1);
-                drop(s);
-            }
-            _ => {} // Do nothing
+        if let Ok(gpdu) = gpdu {
+            let mut p = GtpPacket::new(Message::GPDU(gpdu));
+            p.header.set_teid(self.o_teid);
+            
+            p.send_to(&self.socket, (self.peer, 2152)).expect("Couldn't send GTP Packet");
+            let mut s = self.stats.lock().unwrap();
+            (*s).tx_gtp_add(1);
+            drop(s);
         }
     }
 }

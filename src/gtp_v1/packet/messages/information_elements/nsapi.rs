@@ -25,6 +25,10 @@ impl InformationElement {
             nsapi: nsapi
         })
     }
+
+    pub fn parse(_buffer: &[u8]) -> Option<(Self, usize)> {
+        None
+    }
 }
 
 impl InformationElementTraits for InformationElement {
@@ -49,9 +53,6 @@ impl InformationElementTraits for InformationElement {
         pos = pos + 1;
 
         pos
-    }
-    
-    fn parse(&mut self, _buffer: &[u8]) {
     }
 }
 

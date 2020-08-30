@@ -1,6 +1,6 @@
 use super::{MessageTraits, MessageType};
 
-use super::information_elements::{self, InformationElement};
+use super::information_elements::InformationElement;
 
 pub struct Message {
 }
@@ -25,8 +25,8 @@ impl MessageTraits for Message {
         None
     }
 
-    fn message_type(&self) -> u8 {
-        MessageType::EchoRequest as u8
+    fn message_type(&self) -> MessageType {
+        MessageType::EchoRequest
     }
     fn length(&self) -> u16 {
         0
@@ -51,7 +51,7 @@ mod tests {
 
         let pos = m.generate(&mut buffer);
 
-        assert_eq!(buffer[..pos], []);
+        assert_eq!(buffer[..pos], [0u8; 0]);
     }
     
     #[test]
@@ -63,7 +63,7 @@ mod tests {
     #[test]
     fn test_message_type() {
         let m = Message::new();
-        assert_eq!(m.message_type(), MessageType::EchoRequest as u8)
+        assert_eq!(m.message_type() as u8, MessageType::EchoRequest as u8)
     }
 
     #[test]

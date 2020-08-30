@@ -1,7 +1,6 @@
 use super::{
     MessageTraits, 
     MessageType,
-    information_elements
 };
 
 use super::information_elements::{InformationElementTraits, InformationElement};
@@ -79,8 +78,8 @@ impl MessageTraits for Message {
         self.information_elements.pop()
     }
 
-    fn message_type(&self) -> u8 {
-        MessageType::CreatePDPContextRequest as u8
+    fn message_type(&self) -> MessageType {
+        MessageType::CreatePDPContextRequest
     }
 
     fn length(&self) -> u16 {
@@ -246,7 +245,7 @@ mod tests {
     #[test]
     fn test_message_type() {
         let m = Message::new();
-        assert_eq!(m.message_type(), MessageType::CreatePDPContextRequest as u8)
+        assert_eq!(m.message_type() as u8, MessageType::CreatePDPContextRequest as u8)
     }
 
     #[test]
